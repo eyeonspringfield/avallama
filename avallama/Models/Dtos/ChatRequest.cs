@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using avallama.Serialization;
 
 namespace avallama.Models.Dtos;
 
@@ -37,13 +38,7 @@ public class ChatRequest
 
     public string ToJson()
     {
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = false,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-
-        return JsonSerializer.Serialize(this, options);
+        return JsonSerializer.Serialize(this, AvallamaJsonSerializerContext.Default.ChatRequest);
     }
 }
 

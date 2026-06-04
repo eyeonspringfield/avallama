@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 
 using System;
+using System.Collections.Generic;
 using System.Threading.RateLimiting;
 using avallama.Constants.Application;
 using avallama.ViewModels;
@@ -106,7 +107,6 @@ public static class ServiceCollectionExtensions
             collection.AddTransient<ScraperViewModel>();
 
             collection.AddSingleton<PageFactory>();
-            collection.AddSingleton<DialogViewModelFactory>();
 
             // Delegate dependency injection for PageFactory
             // This ensures that all dependencies are handled in App.axaml.cs according to the factory pattern
@@ -122,14 +122,16 @@ public static class ServiceCollectionExtensions
                 _ => throw new InvalidOperationException() // if there is no Page registered yet, throw an exception
             });
 
-
-            collection.AddSingleton<Func<ApplicationDialog, DialogViewModel>>(serviceProvider => content =>
-                content switch
+            collection.AddSingleton<IReadOnlyDictionary<ApplicationDialog, DialogRegistration>>(
+                /* ServiceProvider */ _ => new Dictionary<ApplicationDialog, DialogRegistration>
                 {
-                    // since dialogs have been moved, this throws an exception, but I won't delete it as there may be views later
-                    // that are personalized and need to appear in a separate window as a dialog
-                    _ => throw new NotSupportedException()
-                    // Info, Error and the other dialogs are not needed, as they do not call this
+                    // since dialogs have been moved, no generic custom dialogs are registered here, but this can be
+                    // useful in the future if we have personalized views that need to appear in a separate dialog window
+
+                    // Example for future:
+                    // [ApplicationDialog.SomeCustom] = new(
+                    //     () => new SomeCustomView(),
+                    //     () => serviceProvider.GetRequiredService<SomeCustomDialogViewModel>())
                 });
         }
     }

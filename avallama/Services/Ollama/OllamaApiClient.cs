@@ -19,6 +19,7 @@ using avallama.Extensions;
 using avallama.Models;
 using avallama.Models.Dtos;
 using avallama.Models.Ollama;
+using avallama.Serialization;
 using avallama.Services.Persistence;
 using avallama.Utilities.Network;
 using avallama.Utilities.Time;
@@ -125,8 +126,6 @@ internal class OllamaApiClient(
     private readonly TimeSpan _downloadTimeout = TimeSpan.FromSeconds(5);
     public TimeSpan MaxRetryingTime { get; init; } = TimeSpan.FromSeconds(15);
     public TimeSpan ConnectionCheckInterval { get; init; } = TimeSpan.FromMilliseconds(500);
-
-    private readonly JsonSerializerOptions _jsonSerializerOptions = new() { PropertyNameCaseInsensitive = true };
 
     #endregion
 
@@ -241,8 +240,10 @@ internal class OllamaApiClient(
             throw NewServiceUnreachableException();
         }
 
-        var payload = new { model = modelName, stream = true };
-        var jsonPayload = JsonSerializer.Serialize(payload);
+        var payload = new PullModelRequest { Model = modelName };
+        var jsonPayload = JsonSerializer.Serialize(
+            payload,
+            AvallamaJsonSerializerContext.Default.PullModelRequest);
         var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
         using var request = CreateRequest(HttpMethod.Post, "/api/pull");
@@ -296,7 +297,9 @@ internal class OllamaApiClient(
                 var line = await reader.ReadLineAsync(ct);
                 if (line != null)
                 {
-                    json = JsonSerializer.Deserialize<DownloadResponse>(line, _jsonSerializerOptions);
+                    json = JsonSerializer.Deserialize(
+                        line,
+                        AvallamaJsonSerializerContext.Default.DownloadResponse);
 
                     // Check whether the Completed value is received and is increasing
                     if (json is { Completed: not null } && json.Completed > previousCompletedValue)
@@ -361,7 +364,9 @@ internal class OllamaApiClient(
             OllamaResponse? json = null;
             try
             {
-                json = JsonSerializer.Deserialize<OllamaResponse>(line);
+                json = JsonSerializer.Deserialize(
+                    line,
+                    AvallamaJsonSerializerContext.Default.OllamaResponse);
             }
             catch (JsonException)
             {
@@ -381,8 +386,10 @@ internal class OllamaApiClient(
             return false;
         }
 
-        var payload = new { model = modelName };
-        var jsonPayload = JsonSerializer.Serialize(payload);
+        var payload = new ModelRequest { Model = modelName };
+        var jsonPayload = JsonSerializer.Serialize(
+            payload,
+            AvallamaJsonSerializerContext.Default.ModelRequest);
         var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
         using var request = CreateRequest(HttpMethod.Delete, "/api/delete");
@@ -472,7 +479,9 @@ internal class OllamaApiClient(
             using var request = CreateRequest(HttpMethod.Get, "/api/tags");
             using var response = await _checkHttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             var json = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<OllamaTagsResponse>(json, _jsonSerializerOptions);
+            return JsonSerializer.Deserialize(
+                json,
+                AvallamaJsonSerializerContext.Default.OllamaTagsResponse);
         }
         catch (Exception ex) when (ex is HttpRequestException)
         {
@@ -490,8 +499,10 @@ internal class OllamaApiClient(
     {
         try
         {
-            var payload = new { model = modelName };
-            var jsonPayload = JsonSerializer.Serialize(payload);
+            var payload = new ModelRequest { Model = modelName };
+            var jsonPayload = JsonSerializer.Serialize(
+                payload,
+                AvallamaJsonSerializerContext.Default.ModelRequest);
             var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
             using var request = CreateRequest(HttpMethod.Post, "/api/show");
@@ -501,7 +512,9 @@ internal class OllamaApiClient(
             using var response = await _checkHttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             var json = await response.Content.ReadAsStringAsync();
 
-            return JsonSerializer.Deserialize<OllamaShowResponse>(json, _jsonSerializerOptions);
+            return JsonSerializer.Deserialize(
+                json,
+                AvallamaJsonSerializerContext.Default.OllamaShowResponse);
         }
         catch (Exception ex) when (ex is HttpRequestException)
         {

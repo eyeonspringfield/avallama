@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using avallama.Constants.Application;
-using avallama.Factories;
 using avallama.ViewModels;
 using avallama.Views;
 using avallama.Views.Dialogs;
@@ -53,6 +52,10 @@ public record ConfirmationResult(ConfirmationType Confirmation) : DialogResult;
 public record InputResult(IEnumerable<string?> Results) : DialogResult;
 
 public record NullResult(string ErrorMessage = "") : DialogResult;
+
+public sealed record DialogRegistration(
+    Func<Control> CreateView,
+    Func<DialogViewModel> CreateViewModel);
 
 public interface IDialogService
 {
@@ -103,7 +106,7 @@ public interface IDialogService
 }
 
 public class DialogService(
-    DialogViewModelFactory dialogViewModelFactory,
+    IReadOnlyDictionary<ApplicationDialog, DialogRegistration> registeredDialogs,
     IMessenger messenger)
     : IDialogService
 {
@@ -146,12 +149,15 @@ public class DialogService(
                 throw new InvalidOperationException($"{dialog} dialog can not be used with ShowDialog.");
             }
 
+            if (!registeredDialogs.TryGetValue(dialog, out var registration))
+            {
+                throw new NotSupportedException($"{dialog} dialog is not registered.");
+            }
+
             var dialogWindow = new DialogWindow();
-            var dialogName = dialog + "View";
-            var type = typeof(DialogWindow).Assembly.GetType($"avallama.Views.Dialogs.{dialogName}");
-            if (type is null) return;
-            var control = (Control)Activator.CreateInstance(type)!;
-            control.DataContext = dialogViewModelFactory.GetDialogViewModel(dialog);
+            var control = registration.CreateView();
+
+            control.DataContext = registration.CreateViewModel();
             dialogWindow.DataContext = new DialogViewModel { DialogType = dialog };
             dialogWindow.Content = control;
             dialogWindow.CanResize = resizable;
@@ -197,10 +203,13 @@ public class DialogService(
         Dispatcher.UIThread.Post(() =>
         {
             var dialogWindow = new DialogWindow();
-            var type = typeof(DialogWindow).Assembly.GetType("avallama.Views.Dialogs.InformationView");
-            if (type is null) return;
-            var control = (Control)Activator.CreateInstance(type)! as InformationView;
-            control!.DialogMessage.Text = informationMessage.Replace(@"\n", Environment.NewLine);
+            var control = new InformationView
+            {
+                DialogMessage =
+                {
+                    Text = informationMessage.Replace(@"\n", Environment.NewLine)
+                }
+            };
             dialogWindow.Content = control;
             dialogWindow.DataContext = new DialogViewModel
             {
@@ -223,10 +232,13 @@ public class DialogService(
         Dispatcher.UIThread.Post(() =>
         {
             var dialogWindow = new DialogWindow();
-            var type = typeof(DialogWindow).Assembly.GetType("avallama.Views.Dialogs.ErrorView");
-            if (type is null) return;
-            var control = (Control)Activator.CreateInstance(type)! as ErrorView;
-            control!.DialogMessage.Text = errorMessage.Replace(@"\n", Environment.NewLine);
+            var control = new ErrorView
+            {
+                DialogMessage =
+                {
+                    Text = errorMessage.Replace(@"\n", Environment.NewLine)
+                }
+            };
             control.CloseButton.Click += (_, _) =>
             {
                 CloseDialog(ApplicationDialog.Error);
@@ -292,11 +304,14 @@ public class DialogService(
         {
             var dialogWindow = new DialogWindow();
             // ConfirmationView on purpose, as its View is reusable
-            var type = typeof(DialogWindow).Assembly.GetType("avallama.Views.Dialogs.ConfirmationView");
-            if (type is null) return;
-            var control = (Control)Activator.CreateInstance(type)! as ConfirmationView;
+            var control = new ConfirmationView
+            {
+                DialogTitle =
+                {
+                    Text = title
+                }
+            };
 
-            control!.DialogTitle.Text = title;
             if (!string.IsNullOrEmpty(description))
             {
                 control.DialogDescription.Text = description;
@@ -389,11 +404,14 @@ public class DialogService(
         {
             var dialogResult = new TaskCompletionSource<DialogResult>();
             var dialogWindow = new DialogWindow();
-            var type = typeof(DialogWindow).Assembly.GetType("avallama.Views.Dialogs.ConfirmationView");
-            if (type is null) return new NullResult("View type is null");
-            var control = (Control)Activator.CreateInstance(type)! as ConfirmationView;
+            var control = new ConfirmationView
+            {
+                DialogTitle =
+                {
+                    Text = title
+                }
+            };
 
-            control!.DialogTitle.Text = title;
             if (!string.IsNullOrEmpty(description))
             {
                 control.DialogDescription.Text = description;
@@ -500,11 +518,14 @@ public class DialogService(
 
             var dialogResult = new TaskCompletionSource<DialogResult>();
             var dialogWindow = new DialogWindow();
-            var type = typeof(DialogWindow).Assembly.GetType("avallama.Views.Dialogs.InputView");
-            if (type is null) return new NullResult("View type is null");
-            var control = (Control)Activator.CreateInstance(type)! as InputView;
+            var control = new InputView
+            {
+                DialogTitle =
+                {
+                    Text = title
+                }
+            };
 
-            control!.DialogTitle.Text = title;
             if (!string.IsNullOrEmpty(description))
             {
                 control.DialogDescription.Text = description;

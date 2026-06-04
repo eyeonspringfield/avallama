@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using avallama.Constants.Keys;
 using avallama.Models.Ollama;
+using avallama.Serialization;
 using avallama.Utilities;
 using Microsoft.Data.Sqlite;
 
@@ -70,7 +71,9 @@ public class ModelCacheService : IModelCacheService
                 var pullCount = reader.GetInt32(2);
                 var labels = reader.IsDBNull(3)
                     ? []
-                    : JsonSerializer.Deserialize<List<string>>(reader.GetString(3)) ?? [];
+                    : JsonSerializer.Deserialize(
+                        reader.GetString(3),
+                        AvallamaJsonSerializerContext.Default.StringList) ?? [];
                 var tagCount = reader.GetInt32(4);
                 var lastUpdated = reader.IsDBNull(5) ? DateTime.MinValue : reader.GetDateTime(5);
 
@@ -119,7 +122,9 @@ public class ModelCacheService : IModelCacheService
                     insertCmd.Parameters.AddWithValue("@description", family.Description);
                     insertCmd.Parameters.AddWithValue("@pullCount", family.PullCount);
                     insertCmd.Parameters.AddWithValue("@labels",
-                        JsonSerializer.Serialize(family.Labels));
+                        JsonSerializer.Serialize(
+                            family.Labels.ToList(),
+                            AvallamaJsonSerializerContext.Default.StringList));
                     insertCmd.Parameters.AddWithValue("@tagCount", family.TagCount);
                     insertCmd.Parameters.AddWithValue("@lastUpdated", family.LastUpdated);
                     insertCmd.Parameters.AddWithValue("@cachedAt", now);
@@ -150,7 +155,9 @@ public class ModelCacheService : IModelCacheService
                     updateCmd.Parameters.AddWithValue("@description", family.Description);
                     updateCmd.Parameters.AddWithValue("@pullCount", family.PullCount);
                     updateCmd.Parameters.AddWithValue("@labels",
-                        JsonSerializer.Serialize(family.Labels));
+                        JsonSerializer.Serialize(
+                            family.Labels.ToList(),
+                            AvallamaJsonSerializerContext.Default.StringList));
                     updateCmd.Parameters.AddWithValue("@tagCount", family.TagCount);
                     updateCmd.Parameters.AddWithValue("@lastUpdated", family.LastUpdated);
                     updateCmd.Parameters.AddWithValue("@cachedAt", now);
@@ -203,7 +210,9 @@ public class ModelCacheService : IModelCacheService
                 var pullCount = reader.GetInt32(2);
                 var labels = reader.IsDBNull(3)
                     ? []
-                    : JsonSerializer.Deserialize<List<string>>(reader.GetString(3)) ?? [];
+                    : JsonSerializer.Deserialize(
+                        reader.GetString(3),
+                        AvallamaJsonSerializerContext.Default.StringList) ?? [];
                 var tagCount = reader.GetInt32(4);
                 var lastUpdated = reader.IsDBNull(5) ? DateTime.MinValue : reader.GetDateTime(5);
 
@@ -256,7 +265,9 @@ public class ModelCacheService : IModelCacheService
 
                 if (!reader.IsDBNull(10))
                 {
-                    var additionalInfo = JsonSerializer.Deserialize<Dictionary<string, string>>(reader.GetString(10));
+                    var additionalInfo = JsonSerializer.Deserialize(
+                        reader.GetString(10),
+                        AvallamaJsonSerializerContext.Default.StringDictionary);
                     if (additionalInfo != null)
                     {
                         foreach (var kvp in additionalInfo)
@@ -429,7 +440,11 @@ public class ModelCacheService : IModelCacheService
                 or ModelInfoKey.LastUpdated))
             .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
-        var additionalInfo = additionalDetails.Count > 0 ? JsonSerializer.Serialize(additionalDetails) : null;
+        var additionalInfo = additionalDetails.Count > 0
+            ? JsonSerializer.Serialize(
+                additionalDetails,
+                AvallamaJsonSerializerContext.Default.StringDictionary)
+            : null;
 
         return (format, quantization, architecture, blockCount, contextLength, embeddingLength, additionalInfo);
     }
@@ -556,7 +571,9 @@ public class ModelCacheService : IModelCacheService
                 if (!reader.IsDBNull(10))
                 {
                     var additionalInfo =
-                        JsonSerializer.Deserialize<Dictionary<string, string>>(reader.GetString(10));
+                        JsonSerializer.Deserialize(
+                            reader.GetString(10),
+                            AvallamaJsonSerializerContext.Default.StringDictionary);
                     if (additionalInfo != null)
                     {
                         foreach (var kvp in additionalInfo)
@@ -620,7 +637,9 @@ public class ModelCacheService : IModelCacheService
             familyCmd.Parameters.AddWithValue("@familyName", familyName);
             familyCmd.Parameters.AddWithValue("@description", description);
             familyCmd.Parameters.AddWithValue("@pullCount", pullCount);
-            familyCmd.Parameters.AddWithValue("@labels", JsonSerializer.Serialize(labels));
+            familyCmd.Parameters.AddWithValue("@labels", JsonSerializer.Serialize(
+                labels.ToList(),
+                AvallamaJsonSerializerContext.Default.StringList));
             familyCmd.Parameters.AddWithValue("@tagCount", tagCount);
             familyCmd.Parameters.AddWithValue("@lastUpdated", lastUpdated);
             familyCmd.Parameters.AddWithValue("@cachedAt", now);
@@ -725,7 +744,9 @@ public class ModelCacheService : IModelCacheService
             var pullCount = reader.GetInt32(2);
             var labels = reader.IsDBNull(3)
                 ? []
-                : JsonSerializer.Deserialize<List<string>>(reader.GetString(3)) ?? [];
+                : JsonSerializer.Deserialize(
+                    reader.GetString(3),
+                    AvallamaJsonSerializerContext.Default.StringList) ?? [];
             var tagCount = reader.GetInt32(4);
             var lastUpdated = reader.IsDBNull(5) ? DateTime.MinValue : reader.GetDateTime(5);
 

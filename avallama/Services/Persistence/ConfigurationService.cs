@@ -7,6 +7,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using avallama.Constants.Keys;
+using avallama.Serialization;
 using Avalonia.Styling;
 
 namespace avallama.Services.Persistence;
@@ -16,7 +17,6 @@ public interface IConfigurationService
     string ReadSetting(string key);
     void SaveSetting(string key, string value);
 }
-
 
 public class ConfigurationService : IConfigurationService
 {
@@ -32,13 +32,14 @@ public class ConfigurationService : IConfigurationService
         {
             Directory.CreateDirectory(appDir);
         }
+
         _configPath = Path.Combine(appDir, "config.json");
 
         if (File.Exists(_configPath))
         {
             var json = File.ReadAllText(_configPath);
-            _settings = JsonSerializer.Deserialize<Dictionary<string, string>>(json)
-                        ?? new Dictionary<string, string>();
+            _settings = JsonSerializer.Deserialize(json, AvallamaJsonSerializerContext.Default.StringDictionary) ??
+                        new Dictionary<string, string>();
         }
         else
         {
@@ -59,7 +60,9 @@ public class ConfigurationService : IConfigurationService
         lock (_lock)
         {
             _settings[key] = value;
-            var json = JsonSerializer.Serialize(_settings, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(
+                _settings,
+                AvallamaIndentedJsonSerializerContext.Default.StringDictionary);
             File.WriteAllText(_configPath, json);
 
             if (Avalonia.Application.Current is not App app) return;
